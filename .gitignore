@@ -1,0 +1,9 @@
+__pycache__/
+.venv/
+.idea/
+output/
+output_images/
+*.log
+*.csv
+*.txt
+*.md
