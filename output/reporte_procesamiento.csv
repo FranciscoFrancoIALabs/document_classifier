@@ -1,4 +1,0 @@
-id,nombre_archivo,extension,num_paginas,tipo_contenido,tipo_documento,ocr_tiempo_s,llm_tiempo_s,ocr_calidad,extraccion_calidad,ocr_modo,estado,error,timestamp
-40970275,(RESOLUCION SIN COORDENADAS NI DELIMITACION DE CABIDA Y LINDEROS) RESOLUCION 248  PREDIO PIEDRAS BLANCAS.pdf,.pdf,6,image,Plano,75.4,8.06,Buena,N/A,PaddleOCR-VL,ok,,2025-11-09 18:17:43
-88622861,201842010199898446E05179.pdf,.pdf,1,image,Plano,4.97,8.49,Baja,N/A,PaddleOCR-VL,ok,,2025-11-09 18:17:56
-13549749,CASO RESOLUCION EXTINCION CON EXCLUSIÓN DE ÁREA.pdf,.pdf,20,image,Plano,273.19,43.09,Buena,N/A,PaddleOCR-VL,ok,,2025-11-09 18:23:13

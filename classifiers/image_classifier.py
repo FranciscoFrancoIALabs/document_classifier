@@ -2,6 +2,7 @@ from openai import OpenAI
 from pathlib import Path
 from models import Classification
 from config import MODEL_IMAGE, BASE_URL, USE_LOCAL_MODEL
+from prompts.base_prompts import PROMPT_IMAGE_CLASSIFICATION
 
 client = OpenAI(base_url=BASE_URL)
 
@@ -72,9 +73,7 @@ def classify_image_document(pdf_path: Path, content_info: dict) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "Eres un asistente experto en clasificación documental. "
-                    "Analiza visualmente la imagen del documento y clasifícala en UNA de las siguientes categorías: "
-                    "Resolucion, Plano, Escritura, Croquis, Documento de Apoyo u Otros."
+                    PROMPT_IMAGE_CLASSIFICATION
                 ),
             },
             {

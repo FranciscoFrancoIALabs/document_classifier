@@ -13,10 +13,10 @@ Admite tanto **procesamiento textual** como **procesamiento visual (OCR)**, con 
 * 🔍 **Detección automática** del tipo de contenido (texto, imagen o híbrido).
 * 🧾 **Clasificación textual** mediante LLM local (GPT-OSS-20B) o remoto.
 * 🖼️ **Clasificación visual / OCR** con **PaddleOCR-VL** (visión + lenguaje).
-* 📊 **Reporter CSV** con métricas detalladas por documento.
-* ⚙️ **Arquitectura modular**: detectores, clasificadores, OCR y utilidades independientes.
+* 📊 **Reporter CSV** con métricas y marcas de tiempo locales.
+* ⚙️ **Arquitectura modular**: detectores, clasificadores, OCR, prompts y utilidades independientes.
 * 🔄 **Soporte local o cloud**: OpenAI API o modelos locales.
-* 🧩 **Modo de ejecución configurable**: `"text"`, `"image"`, o `"auto"`.
+* 🧩 **Modo de ejecución configurable**: `"text"`, `"image"` o `"auto"` (en desarrollo).
 
 ---
 
@@ -25,32 +25,55 @@ Admite tanto **procesamiento textual** como **procesamiento visual (OCR)**, con 
 ```
 document_classifier_v3/
 │
-├── Dockerfile                    # Imagen base con PaddleOCR-VL
+├── Dockerfile                    # Imagen base con PaddleOCR-VL y timezone -05
 ├── main.py                       # Orquestador principal
 ├── config.py                     # Configuración general
-├── models.py                     # Esquemas de salida estructurada
+├── models.py                     # Esquemas de salida estructurada (Pydantic)
 ├── requirements.txt              # Dependencias Python
 │
 ├── detectors/
-│   └── content_detector.py        # Detección de tipo de contenido
+│   └── content_detector.py        # Detección del tipo de contenido
 │
 ├── classifiers/
-│   ├── text_classifier.py         # Clasificador por texto embebido
-│   ├── image_classifier.py        # Clasificador por visión / OCR
+│   ├── text_classifier.py         # Clasificador textual con LLM
+│   ├── image_classifier.py        # Clasificador visual / OCR
 │   └── __init__.py
 │
 ├── ocr/
-│   └── paddle_vl_wrapper.py       # Wrapper PaddleOCR-VL
+│   └── paddle_vl_wrapper.py       # Wrapper para PaddleOCR-VL
+│
+├── prompts/
+│   └── base_prompts.py            # Prompts centralizados para clasificación
 │
 ├── utils/
 │   ├── pdf_utils.py               # Conversión PDF → imagen
-│   ├── encoding.py                # Funciones de codificación Base64
+│   ├── encoding.py                # Codificación Base64
 │   ├── reporting.py               # Generación de reportes CSV
 │   └── __init__.py
 │
-├── Muestras de Expedientes/       # Carpeta de PDFs de ejemplo
+├── Muestras de Expedientes/       # Carpeta con PDFs de ejemplo
 │
-└── output/                        # Carpeta para resultados y reportes
+└── output/                        # Carpeta para resultados OCR y reportes
+```
+
+---
+
+## 🧭 Ver estructura del proyecto (Windows PowerShell)
+
+Ejecuta este comando desde la raíz del proyecto:
+
+```powershell
+gci -r -fo . | ? { $_.FullName -notmatch '\\\.venv(\\|$)|\\\.idea(\\|$)|\\\.git(\\|$)|\\\.gitignore$|\\__pycache__(\\|$)' } | sort FullName | % {
+    $r=$_.FullName.Substring((pwd).Path.Length).TrimStart('\')
+    $p=if($r -eq ''){@()}else{$r -split '\\'}
+    $d=$p.Count-1
+    $i='|'+'   '*$d
+    if ($_.PSIsContainer) {
+        "$i+---$($_.Name)"
+    } else {
+        "$i   $($_.Name)"
+    }
+}
 ```
 
 ---
@@ -61,9 +84,11 @@ document_classifier_v3/
 docker build -t document_classifier_v3 .
 ```
 
+> La imagen ya configura automáticamente la zona horaria `America/Bogota` (UTC−05).
+
 ---
 
-## 🚀 Crear y ejecutar el contenedor (GPU activada)
+## 🚀 Ejecutar el contenedor (GPU activada)
 
 ```powershell
 docker run -it --gpus all `
@@ -96,6 +121,7 @@ Por defecto:
 * Analiza los PDFs de `Muestras de Expedientes/`
 * Ejecuta OCR o clasificación textual según `MODE` en `config.py`
 * Guarda los resultados en `output/reporte_procesamiento.csv`
+* Incluye timestamp local (-05) al momento de registrar cada documento
 
 ---
 
@@ -105,14 +131,15 @@ Por defecto:
 from pathlib import Path
 
 PDF_FOLDER = Path("Muestras de Expedientes")
-MODE = "auto"  # "text", "image", "auto"
+MODE = "image"  # "text" o "image"
 
 USE_LOCAL_MODEL = True
 MODEL_TEXT = "openai/gpt-oss-20b"
 MODEL_IMAGE = "paddleocr-vl"
 BASE_URL = "http://localhost:8001/v1"
-OPENAI_API_KEY = "sk-your-key-if-needed"
 ```
+
+> **Nota:** El modo `"auto"` será implementado próximamente.
 
 ---
 
@@ -120,9 +147,9 @@ OPENAI_API_KEY = "sk-your-key-if-needed"
 
 1. `main.py` recorre los documentos PDF.
 2. `content_detector.py` determina si son texto, imagen o híbrido.
-3. Si el documento es imagen → usa **PaddleOCR-VL** → texto → LLM.
-4. Si tiene texto → usa el **LLM textual** directamente.
-5. El resultado estructurado se guarda en `output/reporte_procesamiento.csv`.
+3. Si `MODE = "image"` → usa **PaddleOCR-VL** → extrae texto → clasifica con LLM.
+4. Si `MODE = "text"` → extrae texto embebido → clasifica con LLM.
+5. Se genera un reporte CSV con métricas, tiempos y categoría detectada.
 
 ---
 
@@ -131,10 +158,19 @@ OPENAI_API_KEY = "sk-your-key-if-needed"
 ```
 📄 Resolucion_con_coordenadas.pdf
 🧩 Tipo: IMAGE
-✅ OCR completado (62.3s)
-✅ Clasificación: Resolución
-🧠 Explicación: El documento contiene la palabra "RESOLUCIÓN" y estructura legal numerada.
-⏱️ Tiempo total: 75.9s
+✅ OCR completado (62.3s) → 15,234 caracteres
+✅ Clasificación: Resolucion
+🧠 Explicación: El documento contiene la palabra “RESOLUCIÓN” y estructura legal numerada.
+🕒 Timestamp: 2025-11-09 18:07:15 (-05)
 ```
+
+---
+
+## 🧩 Próximos pasos
+
+1. Implementar modo `"auto"` que seleccione automáticamente el flujo óptimo.
+2. Añadir soporte para carpetas anidadas (procesamiento por subdirectorios).
+3. Mejorar métricas OCR (CER/WER).
+4. Exportar resultados en formatos adicionales (JSON, Excel).
 
 ---
