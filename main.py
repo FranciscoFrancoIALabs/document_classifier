@@ -3,36 +3,22 @@ from detectors.content_detector import detect_content_type
 from classifiers.text_classifier import classify_text_document
 from classifiers.image_classifier import classify_image_document
 from config import MODE, PDF_FOLDER, USE_LOCAL_MODEL, MODEL_IMAGE
-from utils.reporting import init_report, append_record
+from utils.reporting import init_report, append_record, consolidate_reports
 import sys
 import time
 
 
-def main():
+def process_folder(folder_path: Path, global_start_time: float):
     """
-    Orquestador principal del proyecto de clasificación documental.
+    Procesa todos los PDFs dentro de una carpeta individual (expediente).
     """
-    print("🔧 Configuración activa:")
-    print(f"   MODE = {MODE}")
-    print(f"   USE_LOCAL_MODEL = {USE_LOCAL_MODEL}")
-    print(f"   MODEL_IMAGE = {MODEL_IMAGE}")
-    print(f"   Carpeta PDF_FOLDER = {PDF_FOLDER}\n")
+    print(f"\n📁 Procesando expediente: {folder_path.name}")
+    init_report(folder_path.name)
 
-    start_global = time.time()
-    init_report()
-
-    folder = Path(PDF_FOLDER)
-
-    if not folder.exists() or not folder.is_dir():
-        print(f"❌ Carpeta no encontrada: {folder}")
-        sys.exit(1)
-
-    pdf_files = list(folder.glob("*.pdf"))
+    pdf_files = list(folder_path.glob("*.pdf"))
     if not pdf_files:
-        print("⚠️ No se encontraron archivos PDF.")
-        sys.exit(0)
-
-    print(f"\n📂 Analizando {len(pdf_files)} documentos en {folder}")
+        print(f"⚠️  No se encontraron archivos PDF en {folder_path}")
+        return
 
     for pdf_path in pdf_files:
         print(f"📄 Procesando {pdf_path.name}")
@@ -76,17 +62,14 @@ def main():
             if result["status"] == "ok":
                 data = result["data"]
 
-                # Datos del LLM
                 if isinstance(data, dict):
                     record["tipo_documento"] = data.get("document_type", "Desconocido")
                     record["llm_tiempo_s"] = data.get("llm_time_s", 0.0)
                     explanation = data.get("explanation", "")
                 else:
-                    # Si data es objeto Classification
                     record["tipo_documento"] = data.characterizations[0].document_type
                     explanation = data.characterizations[0].explanation
 
-                # Datos del OCR (si existen)
                 if "ocr_data" in result:
                     ocr_data = result["ocr_data"]
                     record["ocr_tiempo_s"] = ocr_data.get("ocr_tiempo_s", 0.0)
@@ -100,8 +83,7 @@ def main():
             else:
                 print(f"   ⚠️  {result['status'].upper()}: {result.get('reason', 'Sin detalles')}\n")
 
-            # 5️⃣ Guardar en CSV
-            append_record(record)
+            append_record(record, folder_path.name)
 
         except Exception as e:
             print(f"   ❌ Error: {e}\n")
@@ -112,10 +94,44 @@ def main():
                 "estado": "error",
                 "error": str(e),
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            })
+            }, folder_path.name)
 
-    elapsed = time.time() - start_global
-    print(f"\n⏱️  Tiempo total: {elapsed:.2f}s")
+    elapsed = time.time() - global_start_time
+    print(f"⏱️  Expediente {folder_path.name} completado en {elapsed:.2f}s\n")
+
+
+def main():
+    """
+    Orquestador principal del proyecto de clasificación documental.
+    """
+    print("🔧 Configuración activa:")
+    print(f"   MODE = {MODE}")
+    print(f"   USE_LOCAL_MODEL = {USE_LOCAL_MODEL}")
+    print(f"   MODEL_IMAGE = {MODEL_IMAGE}")
+    print(f"   Carpeta PDF_FOLDER = {PDF_FOLDER}\n")
+
+    folder = Path(PDF_FOLDER)
+    if not folder.exists() or not folder.is_dir():
+        print(f"❌ Carpeta no encontrada: {folder}")
+        sys.exit(1)
+
+    # 🔹 Detectar si hay subcarpetas (expedientes)
+    subfolders = [f for f in folder.iterdir() if f.is_dir()]
+
+    start_global = time.time()
+
+    if subfolders:
+        print(f"📂 {len(subfolders)} expedientes encontrados. Procesando en lote...\n")
+        for subfolder in subfolders:
+            process_folder(subfolder, start_global)
+
+        consolidate_reports()  # 🔸 Generar reporte global al final
+    else:
+        print("📂 Sin subcarpetas. Procesando PDFs en la raíz...\n")
+        process_folder(folder, start_global)
+
+    total_elapsed = time.time() - start_global
+    print(f"\n🏁 Procesamiento total completado en {total_elapsed:.2f}s")
 
 
 if __name__ == "__main__":

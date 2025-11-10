@@ -5,7 +5,8 @@ from pathlib import Path
 # ==============================
 
 # 📂 Carpeta donde están los PDFs a analizar
-PDF_FOLDER = Path("Muestras de Expedientes")
+# Montada desde el host en /data/expedientes dentro del contenedor
+PDF_FOLDER = Path("/data/expedientes")
 
 # ⚙️ Modo de ejecución:
 MODE = "image"  # "text", "image" o "auto"
@@ -25,7 +26,6 @@ else:
     MODEL_IMAGE = "gpt-4o-mini"
     BASE_URL = "https://api.openai.com/v1"
 
-
 # ==============================
 # ⚙️ PARÁMETROS ADICIONALES
 # ==============================
@@ -35,7 +35,6 @@ TEMP_IMAGE_FOLDER = Path("temp_images")
 TEMP_IMAGE_FOLDER.mkdir(exist_ok=True)
 OUTPUT_FOLDER = Path("output")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
-
 
 # ==============================
 # 🧩 DEPURACIÓN OPCIONAL
@@ -47,3 +46,4 @@ if __name__ == "__main__":
     print(f"   MODEL_IMAGE     = {MODEL_IMAGE}")
     print(f"   BASE_URL        = {BASE_URL}")
     print(f"   MODE            = {MODE}")
+    print(f"   PDF_FOLDER      = {PDF_FOLDER}")

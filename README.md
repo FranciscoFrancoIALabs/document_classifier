@@ -88,17 +88,20 @@ docker build -t document_classifier_v3 .
 
 ---
 
-## 🚀 Ejecutar el contenedor (GPU activada)
+## 🚀 Ejecutar el contenedor (GPU activada y carpeta externa montada)
 
 ```powershell
 docker run -it --gpus all `
   -v "${PWD}:/workspace" `
+  -v "C:\Users\Administrator\Documents\FF\ANT\Expedientes\Expedientes Muestra:/data/expedientes" `
   -v paddleocr_cache:/root/.paddleocr `
   --network host `
   --name document_classifier_v3 `
   document_classifier_v3 `
   bash
 ```
+
+> Esto monta tu carpeta real de expedientes (`C:\Users\Administrator\Documents\FF\ANT\Expedientes\Expedientes Muestra`) dentro del contenedor en `/data/expedientes`.
 
 ---
 
@@ -118,10 +121,10 @@ python main.py
 
 Por defecto:
 
-* Analiza los PDFs de `Muestras de Expedientes/`
-* Ejecuta OCR o clasificación textual según `MODE` en `config.py`
-* Guarda los resultados en `output/reporte_procesamiento.csv`
-* Incluye timestamp local (-05) al momento de registrar cada documento
+* Analiza los PDFs de `Muestras de Expedientes/` o de la ruta configurada.
+* Ejecuta OCR o clasificación textual según `MODE` en `config.py`.
+* Guarda los resultados en `output/reporte_procesamiento.csv`.
+* Incluye timestamp local (-05) en cada registro.
 
 ---
 
@@ -130,8 +133,10 @@ Por defecto:
 ```python
 from pathlib import Path
 
-PDF_FOLDER = Path("Muestras de Expedientes")
-MODE = "image"  # "text" o "image"
+# Carpeta montada desde el host
+PDF_FOLDER = Path("/data/expedientes")
+
+MODE = "image"  # "text", "image" o "auto"
 
 USE_LOCAL_MODEL = True
 MODEL_TEXT = "openai/gpt-oss-20b"
@@ -145,11 +150,11 @@ BASE_URL = "http://localhost:8001/v1"
 
 ## 🧠 Flujo de ejecución
 
-1. `main.py` recorre los documentos PDF.
+1. `main.py` recorre los documentos PDF (en una carpeta o subcarpetas futuras).
 2. `content_detector.py` determina si son texto, imagen o híbrido.
 3. Si `MODE = "image"` → usa **PaddleOCR-VL** → extrae texto → clasifica con LLM.
 4. Si `MODE = "text"` → extrae texto embebido → clasifica con LLM.
-5. Se genera un reporte CSV con métricas, tiempos y categoría detectada.
+5. Se genera un CSV con métricas, tiempos y categoría detectada.
 
 ---
 

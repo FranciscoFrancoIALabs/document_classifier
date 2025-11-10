@@ -7,17 +7,17 @@ from prompts.base_prompts import PROMPT_IMAGE_CLASSIFICATION
 client = OpenAI(base_url=BASE_URL)
 
 
-def classify_image_document(pdf_path: Path, content_info: dict) -> dict:
+def classify_image_document(pdf_path: Path, content_info: dict, expediente_name: str = "default") -> dict:
     """
-    Clasifica un documento PDF usando análisis visual o OCR local.
+    Clasifica un documento PDF usando análisis visual u OCR local.
 
     Flujo:
-    1. Si USE_LOCAL_MODEL y MODEL_IMAGE == "paddleocr-vl":
-       - Extrae texto con PaddleOCR-VL
-       - Clasifica el texto con LLM
-    2. Si no:
-       - Convierte PDF a imagen
-       - Envía a OpenAI vision API
+    1️⃣ Si USE_LOCAL_MODEL y MODEL_IMAGE == "paddleocr-vl":
+        - Extrae texto con PaddleOCR-VL
+        - Clasifica el texto con LLM
+    2️⃣ Si no:
+        - Convierte PDF a imagen
+        - Envía a OpenAI Vision API
     """
     try:
         # 🔹 Flujo local: PaddleOCR-VL → texto → LLM
@@ -27,7 +27,8 @@ def classify_image_document(pdf_path: Path, content_info: dict) -> dict:
 
             print(f"🧩 Ejecutando OCR local (PaddleOCR-VL) sobre {pdf_path.name}...")
 
-            ocr_result = extract_text_with_paddlevl(pdf_path)
+            # 🚀 Se pasa el expediente actual
+            ocr_result = extract_text_with_paddlevl(pdf_path, expediente_name=expediente_name)
 
             if ocr_result["error"]:
                 return {"status": "error", "reason": ocr_result["error"], "ocr_data": ocr_result}
@@ -35,14 +36,14 @@ def classify_image_document(pdf_path: Path, content_info: dict) -> dict:
             if not ocr_result["texto_extraido"].strip():
                 return {"status": "error", "reason": "OCR no produjo texto.", "ocr_data": ocr_result}
 
-            # Clasificar el texto extraído
+            # 🧠 Clasificar el texto extraído
             classification_result = classify_text_document(
                 pdf_path=pdf_path,
                 text=ocr_result["texto_extraido"],
                 content_info=content_info
             )
 
-            # Agregar métricas OCR al resultado
+            # 📊 Agregar métricas OCR al resultado
             if classification_result["status"] == "ok":
                 classification_result["ocr_data"] = ocr_result
 
@@ -62,7 +63,7 @@ def classify_image_document(pdf_path: Path, content_info: dict) -> dict:
                 return {"status": "error", "reason": "No se pudo convertir el PDF a imágenes."}
 
             first_image = image_paths[0]
-            persistent_copy = Path("output") / "temp_images"
+            persistent_copy = Path("output") / expediente_name / "temp_images"
             persistent_copy.mkdir(parents=True, exist_ok=True)
             dst = persistent_copy / f"{pdf_path.stem}_page_1.jpeg"
             shutil.copy(first_image, dst)
@@ -72,9 +73,7 @@ def classify_image_document(pdf_path: Path, content_info: dict) -> dict:
         messages = [
             {
                 "role": "system",
-                "content": (
-                    PROMPT_IMAGE_CLASSIFICATION
-                ),
+                "content": PROMPT_IMAGE_CLASSIFICATION,
             },
             {
                 "role": "user",

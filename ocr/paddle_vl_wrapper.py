@@ -4,18 +4,25 @@ import time
 import pdfplumber
 
 
-def extract_text_with_paddlevl(pdf_path: Path, output_folder: Path = Path("output")) -> dict:
+def extract_text_with_paddlevl(pdf_path: Path, expediente_name: str = "default") -> dict:
     """
     Ejecuta PaddleOCR-VL sobre un PDF y devuelve texto + metadatos.
 
+    Los resultados se guardan en:
+        output/{expediente_name}/{pdf_stem}_ocr.md
+        output/{expediente_name}/imgs/...
+
     Retorna dict con:
-        - texto_extraido: str (contenido markdown completo)
+        - texto_extraido: str
         - ocr_tiempo_s: float
         - ocr_calidad: str ("Buena" | "Baja")
         - num_paginas: int
         - error: str (vacío si ok)
     """
+    # 📁 Carpeta específica del expediente
+    output_folder = Path("output") / expediente_name
     output_folder.mkdir(parents=True, exist_ok=True)
+
     start_time = time.time()
 
     result = {
@@ -44,7 +51,7 @@ def extract_text_with_paddlevl(pdf_path: Path, output_folder: Path = Path("outpu
             markdown_list.append(md_info)
             markdown_images.append(md_info.get("markdown_images", {}))
 
-        # 4️⃣ Concatenar texto (devuelve STRING directamente, no dict)
+        # 4️⃣ Concatenar texto
         markdown_text = pipeline.concatenate_markdown_pages(markdown_list)
 
         # 5️⃣ Guardar markdown
@@ -52,11 +59,14 @@ def extract_text_with_paddlevl(pdf_path: Path, output_folder: Path = Path("outpu
         mkd_file_path.write_text(markdown_text, encoding="utf-8")
 
         # 6️⃣ Guardar imágenes OCR
+        img_folder = output_folder / "imgs"
+        img_folder.mkdir(exist_ok=True)
+
         for item in markdown_images:
             if item:
                 for rel_path, image in item.items():
-                    file_path = output_folder / pdf_path.stem / rel_path
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    # Asegurar que las imágenes queden agrupadas por documento
+                    file_path = img_folder / f"{pdf_path.stem}_{Path(rel_path).name}"
                     image.save(file_path)
 
         # 7️⃣ Calcular métricas
@@ -66,6 +76,7 @@ def extract_text_with_paddlevl(pdf_path: Path, output_folder: Path = Path("outpu
         result["ocr_calidad"] = "Buena" if len(markdown_text) > 500 else "Baja"
 
         print(f"✅ OCR completado ({elapsed:.2f}s) → {len(markdown_text)} chars")
+        print(f"📄 Guardado en: {mkd_file_path}")
 
     except Exception as e:
         result["error"] = str(e)
