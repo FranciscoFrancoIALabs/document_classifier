@@ -11,13 +11,6 @@ def extract_text_with_paddlevl(pdf_path: Path, expediente_name: str = "default")
     Los resultados se guardan en:
         output/{expediente_name}/{pdf_stem}_ocr.md
         output/{expediente_name}/imgs/...
-
-    Retorna dict con:
-        - texto_extraido: str
-        - ocr_tiempo_s: float
-        - ocr_calidad: str ("Buena" | "Baja")
-        - num_paginas: int
-        - error: str (vacío si ok)
     """
     # 📁 Carpeta específica del expediente
     output_folder = Path("output") / expediente_name
@@ -38,35 +31,38 @@ def extract_text_with_paddlevl(pdf_path: Path, expediente_name: str = "default")
         with pdfplumber.open(pdf_path) as pdf:
             result["num_paginas"] = len(pdf.pages)
 
-        # 2️⃣ Ejecutar OCR
+        # 2️⃣ Ejecutar OCR (el pipeline usa su propia lógica interna de paths)
         pipeline = PaddleOCRVL()
         output = pipeline.predict(input=str(pdf_path))
 
-        # 3️⃣ Procesar resultados (output es lista de objetos con atributo .markdown)
+        # 3️⃣ Procesar resultados
         markdown_list = []
         markdown_images = []
 
         for res in output:
-            md_info = res.markdown  # dict con claves: markdown_text, markdown_images
+            md_info = res.markdown
             markdown_list.append(md_info)
             markdown_images.append(md_info.get("markdown_images", {}))
 
         # 4️⃣ Concatenar texto
         markdown_text = pipeline.concatenate_markdown_pages(markdown_list)
 
-        # 5️⃣ Guardar markdown
+        # 5️⃣ Guardar markdown en la carpeta correcta del expediente
         mkd_file_path = output_folder / f"{pdf_path.stem}_ocr.md"
         mkd_file_path.write_text(markdown_text, encoding="utf-8")
 
-        # 6️⃣ Guardar imágenes OCR
-        img_folder = output_folder / "imgs"
-        img_folder.mkdir(exist_ok=True)
-
+        # 6️⃣ Guardar imágenes OCR en la carpeta correcta
         for item in markdown_images:
             if item:
                 for rel_path, image in item.items():
-                    # Asegurar que las imágenes queden agrupadas por documento
-                    file_path = img_folder / f"{pdf_path.stem}_{Path(rel_path).name}"
+                    print(f"🔍 DEBUG rel_path original: {rel_path}")
+                    print(f"🔍 DEBUG output_folder: {output_folder}")
+
+                    # Guardar en output/{expediente_name}/{rel_path}
+                    file_path = output_folder / rel_path
+                    print(f"🔍 DEBUG file_path final: {file_path}")
+
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
                     image.save(file_path)
 
         # 7️⃣ Calcular métricas

@@ -3,38 +3,35 @@ import time
 from pathlib import Path
 from typing import Dict, Any
 
-# 📂 Carpeta base para todos los reportes
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# 📋 Campos del CSV
 CSV_FIELDS = [
     "id", "nombre_archivo", "extension", "num_paginas",
     "tipo_contenido", "tipo_documento",
     "ocr_tiempo_s", "llm_tiempo_s",
     "ocr_calidad", "extraccion_calidad",
     "ocr_modo", "estado",
-    "error", "timestamp"
+    "error", "explicacion", "timestamp"  # 👈 Nueva columna
 ]
 
 
 def get_report_path(expediente_name: str = None) -> Path:
     """
-    Devuelve la ruta del reporte CSV para un expediente.
-    Si no se especifica expediente, devuelve el reporte global.
+    Devuelve la ruta del CSV.
+    - Si expediente_name: output/{expediente_name}/reporte_{expediente_name}.csv
+    - Si None: output/reporte_global.csv
     """
     if expediente_name:
-        return OUTPUT_DIR / f"reporte_{expediente_name}.csv"
+        expediente_dir = OUTPUT_DIR / expediente_name
+        expediente_dir.mkdir(parents=True, exist_ok=True)
+        return expediente_dir / f"reporte_{expediente_name}.csv"
     return OUTPUT_DIR / "reporte_global.csv"
 
 
 def init_report(expediente_name: str = None):
-    """
-    Inicializa el archivo CSV del expediente o el global.
-    Crea encabezados si el archivo no existe.
-    """
+    """Inicializa el CSV con headers si no existe."""
     path = get_report_path(expediente_name)
-    path.parent.mkdir(exist_ok=True)
 
     if not path.exists():
         with open(path, "w", newline="", encoding="utf-8") as f:
@@ -43,10 +40,7 @@ def init_report(expediente_name: str = None):
 
 
 def append_record(record: Dict[str, Any], expediente_name: str = None):
-    """
-    Agrega un registro (fila) al CSV del expediente correspondiente.
-    Convierte `None` en string vacío para evitar errores.
-    """
+    """Agrega un registro al CSV del expediente."""
     path = get_report_path(expediente_name)
     filtered = {k: (record.get(k) or "") for k in CSV_FIELDS}
 
@@ -56,29 +50,29 @@ def append_record(record: Dict[str, Any], expediente_name: str = None):
 
 
 def consolidate_reports():
-    """
-    Consolida todos los reportes individuales en un único reporte global.
-    """
+    """Consolida todos los reportes individuales en reporte_global.csv"""
     global_path = get_report_path(None)
     init_report(None)
+
+    # Buscar CSVs dentro de subcarpetas de expedientes
+    expediente_dirs = [d for d in OUTPUT_DIR.iterdir() if d.is_dir()]
 
     with open(global_path, "a", newline="", encoding="utf-8") as global_file:
         writer = csv.DictWriter(global_file, fieldnames=CSV_FIELDS)
 
-        for file_path in OUTPUT_DIR.glob("reporte_*.csv"):
-            if file_path.name == "reporte_global.csv":
-                continue  # Evita recursión
+        for exp_dir in expediente_dirs:
+            csv_file = exp_dir / f"reporte_{exp_dir.name}.csv"
+            if csv_file.exists():
+                with open(csv_file, "r", encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        writer.writerow(row)
 
-            with open(file_path, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    writer.writerow(row)
-
-    print(f"📊 Reporte global consolidado en: {global_path.name}")
+    print(f"📊 Reporte global consolidado: {global_path}")
 
 
 class Timer:
-    """Context manager para medir tiempos de ejecución."""
+    """Context manager para medir tiempos."""
     def __enter__(self):
         self.start = time.time()
         return self

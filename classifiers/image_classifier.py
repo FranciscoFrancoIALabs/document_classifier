@@ -27,7 +27,7 @@ def classify_image_document(pdf_path: Path, content_info: dict, expediente_name:
 
             print(f"🧩 Ejecutando OCR local (PaddleOCR-VL) sobre {pdf_path.name}...")
 
-            # 🚀 Se pasa el expediente actual
+            print(f"🔍 DEBUG expediente_name recibido: {expediente_name}")
             ocr_result = extract_text_with_paddlevl(pdf_path, expediente_name=expediente_name)
 
             if ocr_result["error"]:

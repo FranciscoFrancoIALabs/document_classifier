@@ -31,9 +31,11 @@ def process_folder(folder_path: Path, global_start_time: float):
 
             # 2️⃣ Clasificar según MODE
             if MODE == "text":
+                # Clasificación por texto embebido (no necesita expediente_name)
                 result = classify_text_document(pdf_path, content_info=content_info)
             elif MODE == "image":
-                result = classify_image_document(pdf_path, content_info)
+                # Clasificación por imagen/OCR — pasa expediente_name para agrupar salidas
+                result = classify_image_document(pdf_path, content_info, expediente_name=folder_path.name)
             else:
                 print("⚠️ MODE debe ser 'text' o 'image'")
                 continue
@@ -69,6 +71,9 @@ def process_folder(folder_path: Path, global_start_time: float):
                 else:
                     record["tipo_documento"] = data.characterizations[0].document_type
                     explanation = data.characterizations[0].explanation
+
+                # 👇 Guardar explicación completa
+                record["explicacion"] = explanation
 
                 if "ocr_data" in result:
                     ocr_data = result["ocr_data"]
